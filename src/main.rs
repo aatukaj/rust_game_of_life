@@ -88,7 +88,7 @@ async fn main() {
 
         let m_wheel = mouse_wheel().1;
         if m_wheel != 0.0 {
-            brush_radius += (m_wheel / 120.0) as i32
+            brush_radius += m_wheel.signum() as i32
         }
 
         let m_left = is_mouse_button_down(MouseButton::Left);
