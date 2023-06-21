@@ -159,6 +159,7 @@ async fn main() {
                     let x = i % width;
                     let y = i / width;
                     let mut neighbours = 0;
+
                     for pos in NEIGHBOUR_POSITIONS {
                         let new_x = x as i32 + pos.0;
                         let new_y = y as i32 + pos.1;

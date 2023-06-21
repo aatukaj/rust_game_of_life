@@ -2,11 +2,11 @@
 
  ### controls:
 
-- alt - change brush shape
-- space - clear
+- alt = change brush shape
+- space = clear
 - mouseleft = stamp brush
--mouseright = erase brush
--mousescroll = change brush size
+- mouseright = erase brush
+- mousescroll = change brush size
 
 
 
