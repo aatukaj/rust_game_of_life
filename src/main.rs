@@ -6,6 +6,8 @@ enum CellState {
     Alive,
     Dead,
 }
+
+#[derive(Debug)]
 enum BrushShape {
     Square,
     CheckerBoard,
@@ -41,7 +43,7 @@ fn conf() -> Conf {
         window_title: String::from("GOL"),
         window_width: 1600,
         window_height: 900,
-        fullscreen: true,
+        fullscreen: false,
         window_resizable: false,
         ..Default::default()
     }
@@ -70,6 +72,18 @@ async fn main() {
     }
     let mut last_time = get_time();
 
+    let font = load_ttf_font("assets/scientifica.ttf").await.unwrap();
+    let lines = vec![
+        "controls".to_string(),
+        "alt        = change brush shape".to_string(),
+        "space      = clear".to_string(),
+        "mouseleft  = stamp brush".to_string(),
+        "mouseright = erase brush".to_string(),
+        "mousescroll= change brush size".to_string(),
+        "".to_string(),
+        "params".to_string(),
+    ];
+
     loop {
         println!("fps:{}", get_fps());
         draw_texture_ex(
@@ -85,6 +99,22 @@ async fn main() {
                 ..Default::default()
             },
         );
+        let custom_lines = vec![
+            format!("brush_radius = {}", brush_radius),
+            format!("shape_mode  = {:?}", BRUSHSHAPES[brush_index]),
+        ];
+        for (i, text) in lines.iter().chain(custom_lines.iter()).enumerate() {
+            draw_text_ex(
+                text,
+                5.,
+                22. + i as f32 * 22.0,
+                TextParams {
+                    font,
+                    font_size: 22,
+                    ..Default::default()
+                },
+            );
+        }
 
         let m_wheel = mouse_wheel().1;
         if m_wheel != 0.0 {
@@ -164,10 +194,10 @@ async fn main() {
                     for pos in NEIGHBOUR_POSITIONS {
                         let new_x = x as i32 + pos.0;
                         let new_y = y as i32 + pos.1;
-                        if in_bounds(new_x, new_y, width, height) {
-                            if cells[new_x as usize + new_y as usize * width] == CellState::Alive {
-                                neighbours += 1
-                            }
+                        if in_bounds(new_x, new_y, width, height)
+                            && cells[new_x as usize + new_y as usize * width] == CellState::Alive
+                        {
+                            neighbours += 1
                         }
                     }
 
