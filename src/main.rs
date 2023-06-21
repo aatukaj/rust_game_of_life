@@ -19,7 +19,18 @@ const BRUSHSHAPES: [BrushShape; 4] = [
     BrushShape::Diamond,
 ];
 
-const SCALE: f32 = 2.0;
+const SCALE: f32 = 1.0;
+
+const NEIGHBOUR_POSITIONS: [(i32, i32); 8] = [
+    (-1, -1),
+    (0, -1),
+    (1, -1),
+    (-1, 0),
+    (1, 0),
+    (-1, 1),
+    (0, 1),
+    (1, 1),
+];
 
 fn in_bounds(x: i32, y: i32, max_x: usize, max_y: usize) -> bool {
     0 <= x && x < max_x as i32 && 0 <= y && y < max_y as i32
@@ -58,17 +69,6 @@ async fn main() {
         }
     }
     let mut last_time = get_time();
-
-    let neighbour_positions = [
-        (-1, -1),
-        (0, -1),
-        (1, -1),
-        (-1, 0),
-        (1, 0),
-        (-1, 1),
-        (0, 1),
-        (1, 1),
-    ];
 
     loop {
         println!("fps:{}", get_fps());
@@ -159,7 +159,7 @@ async fn main() {
                     let x = i % width;
                     let y = i / width;
                     let mut neighbours = 0;
-                    for pos in neighbour_positions {
+                    for pos in NEIGHBOUR_POSITIONS {
                         let new_x = x as i32 + pos.0;
                         let new_y = y as i32 + pos.1;
                         if in_bounds(new_x, new_y, width, height) {
@@ -187,7 +187,7 @@ async fn main() {
                         CellState::Alive => RED,
                         CellState::Dead => {
                             let red = img.get_pixel(x as u32, y as u32).r;
-                            Color::new(red * 0.8, 0.0, 0.0, 1.0)
+                            Color::new(red * 0.7, 0.0, 0.0, 1.0)
                         }
                     },
                 );
