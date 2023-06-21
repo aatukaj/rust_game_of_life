@@ -19,7 +19,7 @@ const BRUSHSHAPES: [BrushShape; 4] = [
     BrushShape::Diamond,
 ];
 
-const SCALE: f32 = 1.0;
+const SCALE: f32 = 2.0;
 
 fn in_bounds(x: i32, y: i32, max_x: usize, max_y: usize) -> bool {
     0 <= x && x < max_x as i32 && 0 <= y && y < max_y as i32
