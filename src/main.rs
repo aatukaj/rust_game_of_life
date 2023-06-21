@@ -1,7 +1,7 @@
 use macroquad::prelude::*;
 use rayon::prelude::*;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum CellState {
     Alive,
     Dead,
@@ -19,7 +19,7 @@ const BRUSHSHAPES: [BrushShape; 4] = [
     BrushShape::Diamond,
 ];
 
-const SCALE: f32 = 1.0;
+const SCALE: f32 = 2.0;
 
 const NEIGHBOUR_POSITIONS: [(i32, i32); 8] = [
     (-1, -1),
@@ -158,18 +158,19 @@ async fn main() {
                 .map(|(i, cell_state)| {
                     let x = i % width;
                     let y = i / width;
+
                     let mut neighbours = 0;
 
                     for pos in NEIGHBOUR_POSITIONS {
                         let new_x = x as i32 + pos.0;
                         let new_y = y as i32 + pos.1;
                         if in_bounds(new_x, new_y, width, height) {
-                            match cells[new_x as usize + new_y as usize * width] {
-                                CellState::Alive => neighbours += 1,
-                                CellState::Dead => {}
+                            if cells[new_x as usize + new_y as usize * width] == CellState::Alive {
+                                neighbours += 1
                             }
                         }
                     }
+
                     match (neighbours, cell_state) {
                         (2 | 3, CellState::Alive) => CellState::Alive,
                         (3, CellState::Dead) => CellState::Alive,
@@ -178,16 +179,17 @@ async fn main() {
                 })
                 .collect();
 
+            //biggest bottleneck
             for (i, cell_state) in cells.iter().enumerate() {
-                let x = i % width;
-                let y = i / width;
+                let x = (i % width) as u32;
+                let y = (i / width) as u32;
                 img.set_pixel(
-                    x as u32,
-                    y as u32,
+                    x,
+                    y,
                     match cell_state {
                         CellState::Alive => RED,
                         CellState::Dead => {
-                            let red = img.get_pixel(x as u32, y as u32).r;
+                            let red = img.get_pixel(x, y).r;
                             Color::new(red * 0.7, 0.0, 0.0, 1.0)
                         }
                     },
