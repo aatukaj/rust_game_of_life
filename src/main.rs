@@ -1,20 +1,48 @@
 use macroquad::prelude::*;
+use rayon::prelude::*;
 
 #[derive(Clone, Debug)]
 enum CellState {
     Alive,
     Dead,
 }
-const SCALE: f32 = 4.0;
+enum BrushShape {
+    Square,
+    CheckerBoard,
+    Circle,
+    Diamond,
+}
+const BRUSHSHAPES: [BrushShape; 4] = [
+    BrushShape::Square,
+    BrushShape::CheckerBoard,
+    BrushShape::Circle,
+    BrushShape::Diamond,
+];
+
+const SCALE: f32 = 1.0;
 
 fn in_bounds(x: i32, y: i32, max_x: usize, max_y: usize) -> bool {
     0 <= x && x < max_x as i32 && 0 <= y && y < max_y as i32
 }
 
-#[macroquad::main("gameoflife")]
+fn conf() -> Conf {
+    Conf {
+        window_title: String::from("GOL"),
+        window_width: 1600,
+        window_height: 900,
+        fullscreen: true,
+        window_resizable: false,
+        ..Default::default()
+    }
+}
+
+#[macroquad::main(conf)]
 async fn main() {
     let height: usize = (screen_height() / SCALE) as usize;
     let width: usize = (screen_width() / screen_height() * height as f32) as usize + 1;
+
+    let mut brush_radius = 20;
+    let mut brush_index: usize = 0;
 
     let mut img = Image::gen_image_color(width as u16, height as u16, BLACK);
     let tex = Texture2D::from_image(&img);
@@ -31,7 +59,7 @@ async fn main() {
     }
     let mut last_time = get_time();
 
-    let neighbour_positions: Vec<(i32, i32)> = vec![
+    let neighbour_positions = [
         (-1, -1),
         (0, -1),
         (1, -1),
@@ -57,29 +85,81 @@ async fn main() {
                 ..Default::default()
             },
         );
-        if is_mouse_button_down(MouseButton::Left) {
+
+        let m_wheel = mouse_wheel().1;
+        if m_wheel != 0.0 {
+            brush_radius += (m_wheel / 120.0) as i32
+        }
+
+        let m_left = is_mouse_button_down(MouseButton::Left);
+        let m_right = is_mouse_button_down(MouseButton::Right);
+
+        if m_left || m_right {
+            let new_state = if m_left {
+                CellState::Alive
+            } else {
+                CellState::Dead
+            };
+
             let (x, y) = mouse_position();
             let x_i = (x / screen_width() * width as f32) as i32;
             let y_i = (y / screen_height() * height as f32) as i32;
-            for x_offset in 0..4 {
-                for y_offset in 0..4 {
-                    if in_bounds(x_i + x_offset, y_i + y_offset, width, height) {
-                        cells[(x_i + x_offset + (y_i + y_offset)* width as i32) as usize] = CellState::Alive;
+            for x_offset in -brush_radius..=brush_radius {
+                for y_offset in -brush_radius..=brush_radius {
+                    let (x, y) = (x_i + x_offset, y_i + y_offset);
+                    if in_bounds(x, y, width, height) {
+                        match BRUSHSHAPES[brush_index] {
+                            BrushShape::Square => {
+                                cells[(x + y * width as i32) as usize] = new_state.clone()
+                            }
+                            BrushShape::CheckerBoard => {
+                                if x % 2 != y % 2 {
+                                    cells[(x + y * width as i32) as usize] = new_state.clone()
+                                }
+                            }
+                            BrushShape::Circle => {
+                                let (dx, dy) = (x - x_i, y - y_i);
+                                let dist = dx * dx + dy * dy;
+                                if dist < brush_radius * brush_radius && x % 2 != y % 2 {
+                                    cells[(x + y * width as i32) as usize] = new_state.clone()
+                                }
+                            }
+                            BrushShape::Diamond => {
+                                let (dx, dy) = (x - x_i, y - y_i);
+                                if dx.abs() + dy.abs() <= brush_radius {
+                                    cells[(x + y * width as i32) as usize] = new_state.clone()
+                                }
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
-            
         }
 
-        if get_time() - last_time > 0.1 {
-            let mut new_cells: Vec<CellState> = Vec::new();
-            last_time = get_time();
-            for y in 0..height {
-                for x in 0..width {
-                    let mut neighbours = 0;
-                    let cell = &cells[x + y * width];
+        if is_key_down(KeyCode::Escape) {
+            break;
+        }
+        if is_key_pressed(KeyCode::LeftAlt) {
+            brush_index = (brush_index + 1) % BRUSHSHAPES.len();
+        }
+        if is_key_down(KeyCode::Space) {
+            for cell in cells.iter_mut() {
+                *cell = CellState::Dead
+            }
+        }
 
-                    for pos in neighbour_positions.iter() {
+        //update the grid every 0.05 seconds
+        if get_time() - last_time > 0.05 {
+            last_time = get_time();
+            let new_cells: Vec<CellState> = cells
+                .par_iter()
+                .enumerate()
+                .map(|(i, cell_state)| {
+                    let x = i % width;
+                    let y = i / width;
+                    let mut neighbours = 0;
+                    for pos in neighbour_positions {
                         let new_x = x as i32 + pos.0;
                         let new_y = y as i32 + pos.1;
                         if in_bounds(new_x, new_y, width, height) {
@@ -89,22 +169,30 @@ async fn main() {
                             }
                         }
                     }
-                    new_cells.push(match (neighbours, cell) {
+                    match (neighbours, cell_state) {
                         (2 | 3, CellState::Alive) => CellState::Alive,
                         (3, CellState::Dead) => CellState::Alive,
                         _ => CellState::Dead,
-                    });
+                    }
+                })
+                .collect();
 
-                    img.set_pixel(
-                        x as u32,
-                        y as u32,
-                        match cell {
-                            CellState::Alive => RED,
-                            CellState::Dead => BLACK,
-                        },
-                    );
-                }
+            for (i, cell_state) in cells.iter().enumerate() {
+                let x = i % width;
+                let y = i / width;
+                img.set_pixel(
+                    x as u32,
+                    y as u32,
+                    match cell_state {
+                        CellState::Alive => RED,
+                        CellState::Dead => {
+                            let red = img.get_pixel(x as u32, y as u32).r;
+                            Color::new(red * 0.8, 0.0, 0.0, 1.0)
+                        }
+                    },
+                );
             }
+
             cells = new_cells;
             tex.update(&img);
         }
